@@ -20,7 +20,7 @@ class SDB:
                    'third downs attempted', 'third downs made', 'time of possession', 'total',
                    'turnover margin', 'turnovers', 'week', 'wins')
 
-    with open('abbrvs.json', 'r') as f:
+    with open('team-abbrvs.json', 'r') as f:
         TEAM_ABBRVS = json.load(f)
 
     def __init__(self, sport: str, api_key: str = 'guest') -> None:
