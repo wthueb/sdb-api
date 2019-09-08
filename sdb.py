@@ -5,8 +5,6 @@ import requests
 
 
 class SDB:
-    BASE_URL = 'http://api.sportsdatabase.com/{sport}/query.json?sdql={sdql}&output=json&api_key={api_key}'
-
     SDQL_PARAMS = ('ats margin', 'ats streak', 'cdivision', 'coach', 'completions',
                    'conference', 'date', 'day', 'division', 'dpa', 'dps', 'first downs',
                    'fourth downs attempted', 'fourth downs made', 'full name', 'fumbles',
@@ -23,19 +21,25 @@ class SDB:
     with open('team-abbrvs.json', 'r') as f:
         TEAM_ABBRVS = json.load(f)
 
-    def __init__(self, sport: str, api_key: str = 'guest') -> None:
+    def __init__(self, sport: str, use_api: bool = True, api_key: str = 'guest') -> None:
         supported = ('ncaafb',)
 
         if sport not in supported:
             raise ValueError(f'the only supported sports are currently: {supported}')
 
         self.SPORT = sport
+        self.USE_API = use_api
         self.API_KEY = api_key
 
-    def query(self, sdql: str) -> dict:
-        encoded = _verify_and_encode_sdql(sdql)
+        if self.USE_API:
+            self.BASE_URL = 'http://api.sportsdatabase.com/{sport}/query.json?sdql={sdql}&output=json&api_key={api_key}'
+        else:
+            self.BASE_URL = 'http://sportsdatabase.com/{sport}/query?output=default&sdql={sdql}'
 
-        return _request(encoded)
+    def query(self, sdql: str) -> dict:
+        encoded = self._verify_and_encode_sdql(sdql)
+
+        return self._request(encoded)
 
     def _verify_and_encode_sdql(self, sdql: str) -> str:
         if not sdql:
@@ -53,7 +57,16 @@ class SDB:
             cols = [s.strip() for s in cols.split(',')]
 
             for col in cols:
-                if col not in SDQL_PARAMS:
+                if ':' in col:
+                    try:
+                        ref, col = col.split(':')
+                    except ValueError:
+                        raise ValueError(f'malformed reference:parameter pair: {ref}:{col}')
+
+                    if ref not in 'topPnN':
+                        raise ValueError(f'invalid game reference: {ref}:{col}')
+
+                if col not in SDB.SDQL_PARAMS:
                     raise ValueError((f'{key} is not a valid parameter. '                            
                                        'to see a list of valid parameters view SDB.SDQL_PARAMS')) 
 
@@ -68,25 +81,42 @@ class SDB:
                 raise ValueError((f'malformed key-value pair: {kv}. should be in the '
                                    'format "key=value"'))
 
-            if key not in SDQL_PARAMS:
+            if ':' in key:
+                try:
+                    ref, key = key.split(':')
+                except ValueError:
+                    raise ValueError(f'malformed reference:parameter pair: {ref}:{key}')
+
+                if ref not in 'topPnN':
+                    raise ValueError(f'invalid game reference: {ref}:{col}')
+
+            if key not in SDB.SDQL_PARAMS:
                 raise ValueError((f'{key} is not a valid parameter. '
                                    'to see a list of valid parameters view SDB.SDQL_PARAMS'))
 
             if key == 'team':
-                if value not in TEAM_ABBRVS.values():
+                if value not in SDB.TEAM_ABBRVS.values():
                     raise ValueError((f'{value} is not a valid team abbreviation. to see a '
                                        'list of valid abbreviations, look at SDB.TEAM_ABBRVS'))
 
         return quote(sdql)
 
     def _request(self, encoded_sdql: str) -> dict:
-        url = BASE_URL.format(sport=self.SPORT, api_key=self.API_KEY, sdql=encoded_sdql)
+        if self.USE_API:
+            url = self.BASE_URL.format(sport=self.SPORT, api_key=self.API_KEY, sdql=encoded_sdql)
+        else:
+            url = self.BASE_URL.format(sport=self.SPORT, sdql=encoded_sdql)
 
         r = requests.get(url)
 
+        data = None
+
         if r.status_code >= 200 and r.status_code <= 299:
-            return r.json()
+            if self.USE_API:
+                data = r.json()
+            else:
+                # TODO: get data from html table
 
         r.raise_for_status()
 
-        return None
+        return data
