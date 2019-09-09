@@ -1,6 +1,9 @@
 import json
 from urllib.parse import quote
 
+from fake_useragent import UserAgent
+import lxml.etree
+import lxml.html
 import requests
 
 
@@ -36,7 +39,9 @@ class SDB:
         else:
             self.BASE_URL = 'http://sportsdatabase.com/{sport}/query?output=default&sdql={sdql}'
 
-    def query(self, sdql: str) -> dict:
+            self.USER_AGENT = UserAgent()
+
+    def query(self, sdql: str) -> list:
         encoded = self._verify_and_encode_sdql(sdql)
 
         return self._request(encoded)
@@ -101,13 +106,17 @@ class SDB:
 
         return quote(sdql)
 
-    def _request(self, encoded_sdql: str) -> dict:
+    def _request(self, encoded_sdql: str) -> list:
         if self.USE_API:
             url = self.BASE_URL.format(sport=self.SPORT, api_key=self.API_KEY, sdql=encoded_sdql)
+
+            r = requests.get(url)
         else:
             url = self.BASE_URL.format(sport=self.SPORT, sdql=encoded_sdql)
 
-        r = requests.get(url)
+            headers = {'user-agent': self.USER_AGENT.chrome}
+
+            r = requests.get(url, headers=headers)
 
         data = None
 
@@ -115,8 +124,23 @@ class SDB:
             if self.USE_API:
                 data = r.json()
             else:
-                # TODO: get data from html table
+                # TODO: html parsing
+                root = lxml.html.fromstring(r.text)
+
+                data_table = root.xpath('//table[@id="DT_Table"]')[0]
+
+                head = [h.text_content() for h in data_table.cssselect('thead tr th')]
+
+                data = [{head[i]: c.text_content().strip() for i, c in enumerate(r.cssselect('td'))} for r in data_table.cssselect('tr')][1:]
 
         r.raise_for_status()
 
         return data
+
+
+if __name__ == '__main__':
+    sdb = SDB('ncaafb', use_api=False)
+
+    res = sdb.query('team=ALA and o:team=CLEM')
+
+    print(res)
