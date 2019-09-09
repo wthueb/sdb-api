@@ -129,22 +129,42 @@ class SDB:
                 # TODO: get betting data table
                 root = lxml.html.fromstring(r.text)
 
-                game_data_table = root.xpath('//table[@id="DT_Table"]')[0]
+                betting_table = root.xpath('/html/body/table')[2]
+                betting_table = betting_table.xpath('./tr')[1]
+                betting_table = betting_table.xpath('.//table')[0]
 
-                headers = [h.text_content() for h in game_data_table.cssselect('thead tr th')]
+                betting_data = {}
 
-                #game_data = [{headers[i]: c.text_content().strip() for i, c in enumerate(r.cssselect('td'))} for r in game_data_table.cssselect('tr')][1:]
+                for row in betting_table.xpath('./tr'):
+                    # [:-1] to get rid of colon
+                    header = row.xpath('./th')[0].text_content().strip()[:-1]
+
+                    table_data = row.xpath('./td')
+
+                    if len(table_data) == 2:
+                        betting_data[header] = table_data[0].text_content().strip()
+                    else:
+                        outcome = table_data[0].text_content().strip()
+                        avg = table_data[1].text_content().strip().split(':')[-1].strip()
+
+                        betting_data[header] = f'{outcome} avg: {avg}'
+
+                game_table = root.xpath('//table[@id="DT_Table"]')[0]
+
+                headers = [h.text_content() for h in game_table.xpath('.//thead/tr/th')]
+
+                #game_data = [{headers[i]: c.text_content().strip() for i, c in enumerate(r.xpath('.//td'))} for r in game_table.xpath('.//tr')][1:]
 
                 game_data = []
 
                 # [1:] because you want to skip the header row
-                for row in game_data_table.cssselect('tr')[1:]:
+                for row in game_table.xpath('.//tr')[1:]:
                     box_score = {}
 
-                    for i, col in enumerate(row.cssselect('td')):
+                    for i, col in enumerate(row.xpath('.//td')):
                         box_score[headers[i]] = col.text_content().strip()
 
-                    game_data.append(box)
+                    game_data.append(box_score)
 
         r.raise_for_status()
 
