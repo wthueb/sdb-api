@@ -41,7 +41,7 @@ class SDB:
 
             self.USER_AGENT = UserAgent()
 
-    def query(self, sdql: str) -> list:
+    def query(self, sdql: str) -> (dict, list):
         encoded = self._verify_and_encode_sdql(sdql)
 
         return self._request(encoded)
@@ -106,7 +106,7 @@ class SDB:
 
         return quote(sdql)
 
-    def _request(self, encoded_sdql: str) -> list:
+    def _request(self, encoded_sdql: str) -> (dict, list):
         if self.USE_API:
             url = self.BASE_URL.format(sport=self.SPORT, api_key=self.API_KEY, sdql=encoded_sdql)
 
@@ -118,29 +118,43 @@ class SDB:
 
             r = requests.get(url, headers=headers)
 
-        data = None
+        betting_data = None
+        game_data = None
 
         if r.status_code >= 200 and r.status_code <= 299:
             if self.USE_API:
-                data = r.json()
+                # TODO: format json into betting_data and game_data
+                pass
             else:
-                # TODO: html parsing
+                # TODO: get betting data table
                 root = lxml.html.fromstring(r.text)
 
-                data_table = root.xpath('//table[@id="DT_Table"]')[0]
+                game_data_table = root.xpath('//table[@id="DT_Table"]')[0]
 
-                head = [h.text_content() for h in data_table.cssselect('thead tr th')]
+                headers = [h.text_content() for h in game_data_table.cssselect('thead tr th')]
 
-                data = [{head[i]: c.text_content().strip() for i, c in enumerate(r.cssselect('td'))} for r in data_table.cssselect('tr')][1:]
+                #game_data = [{headers[i]: c.text_content().strip() for i, c in enumerate(r.cssselect('td'))} for r in game_data_table.cssselect('tr')][1:]
+
+                game_data = []
+
+                # [1:] because you want to skip the header row
+                for row in game_data_table.cssselect('tr')[1:]:
+                    box_score = {}
+
+                    for i, col in enumerate(row.cssselect('td')):
+                        box_score[headers[i]] = col.text_content().strip()
+
+                    game_data.append(box)
 
         r.raise_for_status()
 
-        return data
+        return betting_data, game_data
 
 
 if __name__ == '__main__':
     sdb = SDB('ncaafb', use_api=False)
 
-    res = sdb.query('team=ALA and o:team=CLEM')
+    betting, game = sdb.query('team=ALA and o:team=CLEM')
 
-    print(res)
+    print(betting)
+    print(game)
