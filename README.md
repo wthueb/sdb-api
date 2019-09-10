@@ -1,9 +1,13 @@
 # sdb-api
-Python API for SportsDatabase.com
+Python API for https://sportsdatabase.com
 
-### usage:
+Uses the Sports Database Query Language (https://sdql.com).
+
+Currently only supports NCAA Football.
+
+### Usage:
 ```
-sdb = SDB('ncaafb', use_api=True, api_key='guest', debug=False)
+sdb = SDB('ncaafb', use_api=False, debug=False)
 betting_data, game_data = sdb.query('team=ALA and o:team=CLEM')
 
 # betting_data = {'SU': '3-2-0 (3.00, 60.0%)', 'ATS': '2-3-0 (-0.40, 40.0%) avg: -3.4', 'O/U': '3-2-0 (6.60, 60.0%) avg: 50.4'}
