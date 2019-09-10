@@ -9,18 +9,19 @@ import requests
 
 
 class SDB:
-    SDQL_PARAMS = ('ats margin', 'ats streak', 'cdivision', 'coach', 'completions',
-                   'conference', 'date', 'day', 'division', 'dpa', 'dps', 'first downs',
-                   'fourth downs attempted', 'fourth downs made', 'full name', 'fumbles',
-                   'fumbles lost', 'game number', 'game type', 'interceptions', 'line',
-                   'losses', 'margin', 'margin after the first', 'margin after the third',
-                   'margin at the half', 'matchup losses', 'matchup wins', 'month', 'opponents',
-                   'ou margin', 'ou streak', 'overtime', 'passes', 'passing yards', 'penalties',
-                   'penalties yards', 'penalty yards', 'playoffs', 'points', 'quarter scores',
-                   'rank', 'rest', 'rot', 'round', 'rushes', 'rushing yards', 'school',
-                   'season', 'seed', 'site', 'site streak', 'start time', 'streak', 'team',
-                   'third downs attempted', 'third downs made', 'time of possession', 'total',
-                   'turnover margin', 'turnovers', 'week', 'wins')
+    NCAAFB_PARAMS = ('ats margin', 'ats streak', 'cdivision', 'coach', 'completions',
+                     'conference', 'date', 'day', 'division', 'dpa', 'dps', 'first downs',
+                     'fourth downs attempted', 'fourth downs made', 'full name', 'fumbles',
+                     'fumbles lost', 'game number', 'game type', 'interceptions', 'line',
+                     'losses', 'margin', 'margin after the first', 'margin after the third',
+                     'margin at the half', 'matchup losses', 'matchup wins', 'month',
+                     'opponents', 'ou margin', 'ou streak', 'overtime', 'passes',
+                     'passing yards', 'penalties', 'penalties yards', 'penalty yards',
+                     'playoffs', 'points', 'quarter scores', 'rank', 'rest', 'rot', 'round',
+                     'rushes', 'rushing yards', 'school', 'season', 'seed', 'site',
+                     'site streak', 'start time', 'streak', 'team', 'third downs attempted',
+                     'third downs made', 'time of possession', 'total', 'turnover margin',
+                     'turnovers', 'week', 'wins')
 
     with open('team-abbrvs.json', 'r') as f:
         TEAM_ABBRVS = json.load(f)
@@ -37,6 +38,9 @@ class SDB:
 
         self.logger.addHandler(ch)
 
+        # TODO: support multiple sports & variable params
+        # maybe: self.PARAMS = vars(SDB)[f'{sport.upper()}_PARAMS']
+        # kinda hacky though
         supported = ('ncaafb',)
 
         if sport not in supported:
@@ -94,9 +98,9 @@ class SDB:
                     if ref not in 'topPnN':
                         raise ValueError(f'invalid game reference: {ref}:{col}')
 
-                if col not in SDB.SDQL_PARAMS:
+                if col not in SDB.NCAAFB_PARAMS:
                     raise ValueError((f'{key} is not a valid parameter. '                            
-                                       'to see a list of valid parameters view SDB.SDQL_PARAMS')) 
+                                       'to see a list of valid parameters view SDB.NCAAFB_PARAMS'))
 
             kvs = [s.strip() for s in kvs.split(' and ')]
         else:
@@ -118,9 +122,9 @@ class SDB:
                 if ref not in 'topPnN':
                     raise ValueError(f'invalid game reference: {ref}:{col}')
 
-            if key not in SDB.SDQL_PARAMS:
+            if key not in SDB.NCAAFB_PARAMS:
                 raise ValueError((f'{key} is not a valid parameter. '
-                                   'to see a list of valid parameters view SDB.SDQL_PARAMS'))
+                                   'to see a list of valid parameters view SDB.NCAAFB_PARAMS'))
 
             if key == 'team':
                 if value not in SDB.TEAM_ABBRVS.keys():
