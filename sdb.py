@@ -123,7 +123,7 @@ class SDB:
                                    'to see a list of valid parameters view SDB.SDQL_PARAMS'))
 
             if key == 'team':
-                if value not in SDB.TEAM_ABBRVS.values():
+                if value not in SDB.TEAM_ABBRVS.keys():
                     raise ValueError((f'{value} is not a valid team abbreviation. to see a '
                                        'list of valid abbreviations, look at SDB.TEAM_ABBRVS'))
 
