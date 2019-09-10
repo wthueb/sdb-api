@@ -1,4 +1,5 @@
 import json
+import logging
 from urllib.parse import quote
 
 from fake_useragent import UserAgent
@@ -24,7 +25,18 @@ class SDB:
     with open('team-abbrvs.json', 'r') as f:
         TEAM_ABBRVS = json.load(f)
 
-    def __init__(self, sport: str, use_api: bool = True, api_key: str = 'guest') -> None:
+    def __init__(self, sport: str, use_api: bool = True, api_key: str = 'guest',
+                 debug: bool = False) -> None:
+        self.logger = logging.getLogger('sdb-api')
+        self.logger.setLevel(logging.DEBUG)
+
+        ch = logging.StreamHandler()
+        ch.setLevel(logging.DEBUG if debug else logging.INFO)
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        ch.setFormatter(formatter)
+
+        self.logger.addHandler(ch)
+
         supported = ('ncaafb',)
 
         if sport not in supported:
@@ -41,12 +53,23 @@ class SDB:
 
             self.USER_AGENT = UserAgent()
 
+            self.logger.debug(f'using user agent: {self.USER_AGENT.chrome}')
+
+        self.logger.debug(f'using base url: {self.BASE_URL}')
+
     def query(self, sdql: str) -> (dict, list):
-        encoded = self._verify_and_encode_sdql(sdql)
+        self.logger.debug(f'raw query: {sdql}')
 
-        return self._request(encoded)
+        try:
+            self._verify_sdql(sdql)
+        except Exception as e:
+            logging.error('there was an error verifying your sdql query:')
 
-    def _verify_and_encode_sdql(self, sdql: str) -> str:
+            raise e
+
+        return self._request(sdql)
+
+    def _verify_sdql(self, sdql: str) -> None:
         if not sdql:
             raise ValueError('sdql query cannot be empty')
 
@@ -104,77 +127,95 @@ class SDB:
                     raise ValueError((f'{value} is not a valid team abbreviation. to see a '
                                        'list of valid abbreviations, look at SDB.TEAM_ABBRVS'))
 
-        return quote(sdql)
+        self.logger.debug('query is valid')
 
-    def _request(self, encoded_sdql: str) -> (dict, list):
+    def _request(self, sdql: str) -> (dict, list):
+        encoded_sdql = quote(sdql)
+
         if self.USE_API:
             url = self.BASE_URL.format(sport=self.SPORT, api_key=self.API_KEY, sdql=encoded_sdql)
+
+            self.logger.debug(f'sending request to: {url}')
 
             r = requests.get(url)
         else:
             url = self.BASE_URL.format(sport=self.SPORT, sdql=encoded_sdql)
 
+            self.logger.debug(f'sending request to: {url}')
+
             headers = {'user-agent': self.USER_AGENT.chrome}
 
             r = requests.get(url, headers=headers)
 
-        betting_data = None
-        game_data = None
+        betting_data = {}
+        game_data = []
 
         if r.status_code >= 200 and r.status_code <= 299:
             if self.USE_API:
                 # TODO: format json into betting_data and game_data
                 pass
             else:
-                # TODO: get betting data table
-                root = lxml.html.fromstring(r.text)
-
-                betting_table = root.xpath('/html/body/table')[2]
-                betting_table = betting_table.xpath('./tr')[1]
-                betting_table = betting_table.xpath('.//table')[0]
-
-                betting_data = {}
-
-                for row in betting_table.xpath('./tr'):
-                    # [:-1] to get rid of colon
-                    header = row.xpath('./th')[0].text_content().strip()[:-1]
-
-                    table_data = row.xpath('./td')
-
-                    if len(table_data) == 2:
-                        betting_data[header] = table_data[0].text_content().strip()
-                    else:
-                        outcome = table_data[0].text_content().strip()
-                        avg = table_data[1].text_content().strip().split(':')[-1].strip()
-
-                        betting_data[header] = f'{outcome} avg: {avg}'
-
-                game_table = root.xpath('//table[@id="DT_Table"]')[0]
-
-                headers = [h.text_content() for h in game_table.xpath('.//thead/tr/th')]
-
-                #game_data = [{headers[i]: c.text_content().strip() for i, c in enumerate(r.xpath('.//td'))} for r in game_table.xpath('.//tr')][1:]
-
-                game_data = []
-
-                # [1:] because you want to skip the header row
-                for row in game_table.xpath('.//tr')[1:]:
-                    box_score = {}
-
-                    for i, col in enumerate(row.xpath('.//td')):
-                        box_score[headers[i]] = col.text_content().strip()
-
-                    game_data.append(box_score)
+                betting_data, game_data = self._parse_webpage(r.content, '@' in sdql)
+        elif r.status_code == 404:
+            if self.USE_API:
+                self.logger.error('api.sportsdatabase.com is down')
+            else:
+                self.logger.error('sportsdatabase.com is down')
+        else:
+            self.logger.error(f'there was an http error when making the request: {r.status_code}')
 
         r.raise_for_status()
 
         return betting_data, game_data
 
+    def _parse_webpage(self, html_text: str, custom_headers: bool) -> (dict, list):
+        root = lxml.html.fromstring(html_text)
+
+        betting_data = {}
+
+        if not custom_headers:
+            betting_table = root.xpath('/html/body/table')[2]
+            betting_table = betting_table.xpath('./tr')[1]
+            betting_table = betting_table.xpath('.//table')[0]
+
+            for row in betting_table.xpath('./tr'):
+                # [:-1] to get rid of colon
+                header = row.xpath('./th')[0].text_content().strip()[:-1]
+
+                table_data = row.xpath('./td')
+
+                if len(table_data) == 2:
+                    betting_data[header] = table_data[0].text_content().strip()
+                else:
+                    outcome = table_data[0].text_content().strip()
+                    avg = table_data[1].text_content().strip().split(':')[-1].strip()
+
+                    betting_data[header] = f'{outcome} avg: {avg}'
+
+        game_table = root.xpath('//table[@id="DT_Table"]')[0]
+
+        headers = [h.text_content() for h in game_table.xpath('.//thead/tr/th')]
+
+        #game_data = [{headers[i]: c.text_content().strip() for i, c in enumerate(r.xpath('.//td'))} for r in game_table.xpath('.//tr')][1:]
+
+        game_data = []
+
+        # [1:] because you want to skip the header row
+        for row in game_table.xpath('.//tr')[1:]:
+            box_score = {}
+
+            for i, col in enumerate(row.xpath('.//td')):
+                box_score[headers[i]] = col.text_content().strip()
+
+            game_data.append(box_score)
+
+        return betting_data, game_data
+
 
 if __name__ == '__main__':
-    sdb = SDB('ncaafb', use_api=False)
+    sdb = SDB('ncaafb', use_api=False, debug=True)
 
-    betting, game = sdb.query('team=ALA and o:team=CLEM')
+    betting_data, game_data = sdb.query('team=ALA and o:team=CLEM')
 
-    print(betting)
-    print(game)
+    print('betting data:', betting_data)
+    print('game data:', game_data)
