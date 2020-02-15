@@ -31,12 +31,12 @@ class SDB:
         self.logger = logging.getLogger('sdb-api')
         self.logger.setLevel(logging.DEBUG)
 
-        ch = logging.StreamHandler()
-        ch.setLevel(logging.DEBUG if debug else logging.INFO)
-        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-        ch.setFormatter(formatter)
+        sh = logging.StreamHandler()
+        sh.setLevel(logging.DEBUG if debug else logging.INFO)
+        formatter = logging.Formatter('%(asctime)s %(name)-10s %(levelname)-7s - %(message)s')
+        sh.setFormatter(formatter)
 
-        self.logger.addHandler(ch)
+        self.logger.addHandler(sh)
 
         # TODO: support multiple sports & variable params
         # maybe: self.PARAMS = vars(SDB)[f'{sport.upper()}_PARAMS']
