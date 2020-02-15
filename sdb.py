@@ -2,9 +2,6 @@ import json
 import logging
 from urllib.parse import quote
 
-from fake_useragent import UserAgent
-import lxml.etree
-import lxml.html
 import requests
 
 
@@ -53,6 +50,9 @@ class SDB:
         if self.USE_API:
             self.BASE_URL = 'http://api.sportsdatabase.com/{sport}/query.json?sdql={sdql}&output=json&api_key={api_key}'
         else:
+            from fake_useragent import UserAgent
+            import lxml.html
+
             self.BASE_URL = 'http://sportsdatabase.com/{sport}/query?output=default&sdql={sdql}'
 
             self.USER_AGENT = UserAgent()
