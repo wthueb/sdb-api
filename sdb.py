@@ -51,7 +51,6 @@ class SDB:
             self.BASE_URL = 'http://api.sportsdatabase.com/{sport}/query.json?sdql={sdql}&output=json&api_key={api_key}'
         else:
             from fake_useragent import UserAgent
-            import lxml.html
 
             self.BASE_URL = 'http://sportsdatabase.com/{sport}/query?output=default&sdql={sdql}'
 
@@ -173,6 +172,8 @@ class SDB:
         return betting_data, game_data
 
     def _parse_webpage(self, html_text: str, custom_headers: bool) -> (dict, list):
+        import lxml.html
+
         root = lxml.html.fromstring(html_text)
 
         betting_data = {}
