@@ -48,7 +48,8 @@ class SDB:
         self.API_KEY = api_key
 
         if self.USE_API:
-            self.BASE_URL = 'http://api.sportsdatabase.com/{sport}/query.json?sdql={sdql}&output=json&api_key={api_key}'
+            self.BASE_URL = ('http://api.sportsdatabase.com/'
+                             '{sport}/query.json?sdql={sdql}&output=json&api_key={api_key}')
         else:
             from fake_useragent import UserAgent
 
@@ -98,8 +99,8 @@ class SDB:
                         raise ValueError(f'invalid game reference: {ref}:{col}')
 
                 if col not in SDB.NCAAFB_PARAMS:
-                    raise ValueError((f'{key} is not a valid parameter. '                            
-                                       'to see a list of valid parameters view SDB.NCAAFB_PARAMS'))
+                    raise ValueError((f'{col} is not a valid parameter. '
+                                      'to see a list of valid parameters view SDB.NCAAFB_PARAMS'))
 
             kvs = [s.strip() for s in kvs.split(' and ')]
         else:
@@ -110,7 +111,7 @@ class SDB:
                 key, value = kv.split('=')
             except ValueError:
                 raise ValueError((f'malformed key-value pair: {kv}. should be in the '
-                                   'format "key=value"'))
+                                  'format "key=value"'))
 
             if ':' in key:
                 try:
@@ -123,12 +124,12 @@ class SDB:
 
             if key not in SDB.NCAAFB_PARAMS:
                 raise ValueError((f'{key} is not a valid parameter. '
-                                   'to see a list of valid parameters view SDB.NCAAFB_PARAMS'))
+                                  'to see a list of valid parameters view SDB.NCAAFB_PARAMS'))
 
             if key == 'team':
                 if value not in SDB.TEAM_ABBRVS.keys():
                     raise ValueError((f'{value} is not a valid team abbreviation. to see a '
-                                       'list of valid abbreviations, look at SDB.TEAM_ABBRVS'))
+                                      'list of valid abbreviations, look at SDB.TEAM_ABBRVS'))
 
         self.logger.debug('query is valid')
 
@@ -201,7 +202,8 @@ class SDB:
 
         headers = [h.text_content() for h in game_table.xpath('.//thead/tr/th')]
 
-        #game_data = [{headers[i]: c.text_content().strip() for i, c in enumerate(r.xpath('.//td'))} for r in game_table.xpath('.//tr')][1:]
+        #game_data = [{headers[i]: c.text_content().strip() for i, c in
+        #              enumerate(r.xpath('.//td'))} for r in game_table.xpath('.//tr')][1:]
 
         game_data = []
 
