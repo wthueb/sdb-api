@@ -150,7 +150,7 @@ class SDB:
 
         self.logger.debug(f'sending request to: {url}')
 
-        r = requests.get(url, headers=headers, verify=False)
+        r = requests.get(url, headers=headers, verify=not self.USE_API)
 
         betting_data = {}
         game_data = []
