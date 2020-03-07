@@ -48,6 +48,8 @@ class SDB:
         self.API_KEY = api_key
 
         if self.USE_API:
+            raise ValueError('api not supported')
+
             self.BASE_URL = ('https://api.sportsdatabase.com/'
                              '{sport}/query.json?sdql={sdql}&output=json&api_key={api_key}')
         else:
@@ -162,11 +164,7 @@ class SDB:
 
                 data = json.loads(stripped)
 
-                for i in range(len(data['headers'])):
-                    key = data['headers'][i]
-                    values = data['groups'][0]['columns'][i]
-
-                    # TODO: get this into a reasonable table
+                betting_data, game_data = self._parse_json(data)
             else:
                 betting_data, game_data = self._parse_webpage(r.content, '@' in sdql)
         elif r.status_code == 404:
@@ -180,6 +178,11 @@ class SDB:
         r.raise_for_status()
 
         return betting_data, game_data
+
+    def _parse_json(self, data: dict) -> (dict, list):
+        # TODO: get this into a reasonable table
+
+        return {}, []
 
     def _parse_webpage(self, html_text: str, custom_headers: bool) -> (dict, list):
         import lxml.html
@@ -231,7 +234,7 @@ class SDB:
 if __name__ == '__main__':
     sdb = SDB('ncaafb', use_api=False, debug=True)
 
-    betting_data, game_data = sdb.query('date @ team=ALA and o:team=CLEM')
+    betting_data, game_data = sdb.query('team=ALA and o:team=CLEM')
 
     print('betting data:', betting_data)
     print('game data:', game_data)
