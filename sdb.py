@@ -48,12 +48,12 @@ class SDB:
         self.API_KEY = api_key
 
         if self.USE_API:
-            self.BASE_URL = ('http://api.sportsdatabase.com/'
+            self.BASE_URL = ('https://api.sportsdatabase.com/'
                              '{sport}/query.json?sdql={sdql}&output=json&api_key={api_key}')
         else:
             from fake_useragent import UserAgent
 
-            self.BASE_URL = 'http://sportsdatabase.com/{sport}/query?output=default&sdql={sdql}'
+            self.BASE_URL = 'https://sportsdatabase.com/{sport}/query?output=default&sdql={sdql}'
 
             self.USER_AGENT = UserAgent()
 
@@ -136,28 +136,37 @@ class SDB:
     def _request(self, sdql: str) -> (dict, list):
         encoded_sdql = quote(sdql)
 
+        headers = {}
+
         if self.USE_API:
             url = self.BASE_URL.format(sport=self.SPORT, api_key=self.API_KEY, sdql=encoded_sdql)
-
-            self.logger.debug(f'sending request to: {url}')
-
-            r = requests.get(url)
+            headers = {'user-agent': 'github/wthueb/sdb-api'}
         else:
             url = self.BASE_URL.format(sport=self.SPORT, sdql=encoded_sdql)
 
-            self.logger.debug(f'sending request to: {url}')
-
             headers = {'user-agent': self.USER_AGENT.chrome}
 
-            r = requests.get(url, headers=headers)
+        self.logger.debug(f'sending request to: {url}')
+
+        r = requests.get(url, headers=headers, verify=False)
 
         betting_data = {}
         game_data = []
 
         if r.status_code >= 200 and r.status_code <= 299:
             if self.USE_API:
-                # TODO: format json into betting_data and game_data
-                pass
+                json_start = r.text.find('(') + 1
+                json_end = r.text.find(')')
+
+                stripped = r.text[json_start:json_end].replace("'", '"')
+
+                data = json.loads(stripped)
+
+                for i in range(len(data['headers'])):
+                    key = data['headers'][i]
+                    values = data['groups'][0]['columns'][i]
+
+                    # TODO: get this into a reasonable table
             else:
                 betting_data, game_data = self._parse_webpage(r.content, '@' in sdql)
         elif r.status_code == 404:
@@ -222,7 +231,7 @@ class SDB:
 if __name__ == '__main__':
     sdb = SDB('ncaafb', use_api=False, debug=True)
 
-    betting_data, game_data = sdb.query('team=ALA and o:team=CLEM')
+    betting_data, game_data = sdb.query('date @ team=ALA and o:team=CLEM')
 
     print('betting data:', betting_data)
     print('game data:', game_data)
