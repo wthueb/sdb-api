@@ -20,6 +20,8 @@ class SDB:
                      'third downs made', 'time of possession', 'total', 'turnover margin',
                      'turnovers', 'week', 'wins')
 
+    NBA_PARAMS = ()
+
     with open('team-abbrvs.json', 'r') as f:
         TEAM_ABBRVS = json.load(f)
 
