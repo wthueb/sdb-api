@@ -189,20 +189,40 @@ class SDB:
     def _parse_webpage(self, html_text: str, custom_headers: bool) -> (dict, pd.DataFrame):
         dfs = pd.read_html(html_text)
 
+        # TODO: this could break very easily, perhaps dynamically figuring out which
+        # index the tables are on would be a better soluton
+        betting_data = {}
+
         if not custom_headers:
-            betting_data = dfs[3].to_dict()
+            betting_df = dfs[3]
+
+            betting_data['SU'] = betting_df.loc[0][1]
+
+            ats = ''
+
+            for elem in betting_df.loc[1][1:]:
+                ats += elem + ' '
+
+            betting_data['ATS'] = ats[:-1]
+
+            ou = ''
+
+            for elem in betting_df.loc[2][1:]:
+                ou += elem + ' '
+
+            betting_data['O/U'] = ou[:-1]
+
             game_data = dfs[5]
         else:
-            betting_data = {}
             game_data = dfs[3]
 
         return betting_data, game_data
 
 
 if __name__ == '__main__':
-    sdb = SDB('ncaafb', use_api=True, api_key='guest', debug=True)
+    sdb = SDB('ncaafb', use_api=False, api_key='guest', debug=True)
 
-    betting_data, game_data = sdb.query('date, points, o:points @ team=ALA and o:team=CLEM')
+    betting_data, game_data = sdb.query('team=ALA and o:team=CLEM')
 
     print('betting data:', betting_data)
     print('game data:', game_data)
