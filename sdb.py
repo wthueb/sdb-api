@@ -2,6 +2,7 @@ import json
 import logging
 from urllib.parse import quote
 
+import pandas as pd
 import requests
 
 
@@ -48,8 +49,6 @@ class SDB:
         self.API_KEY = api_key
 
         if self.USE_API:
-            raise ValueError('api not supported')
-
             self.BASE_URL = ('https://api.sportsdatabase.com/'
                              '{sport}/query.json?sdql={sdql}&output=json&api_key={api_key}')
         else:
@@ -169,9 +168,9 @@ class SDB:
                 betting_data, game_data = self._parse_webpage(r.content, '@' in sdql)
         elif r.status_code == 404:
             if self.USE_API:
-                self.logger.error('api.sportsdatabase.com is down')
+                self.logger.error('https://api.sportsdatabase.com is down')
             else:
-                self.logger.error('sportsdatabase.com is down')
+                self.logger.error('https://sportsdatabase.com is down')
         else:
             self.logger.error(f'there was an http error when making the request: {r.status_code}')
 
@@ -179,62 +178,31 @@ class SDB:
 
         return betting_data, game_data
 
-    def _parse_json(self, data: dict) -> (dict, list):
-        # TODO: get this into a reasonable table
+    def _parse_json(self, data: dict) -> (dict, pd.DataFrame):
+        # TODO: api requests can't get betting data?
+        data = dict(zip(data['headers'], data['groups'][0]['columns']))
 
-        return {}, []
+        df = pd.DataFrame.from_dict(data)
 
-    def _parse_webpage(self, html_text: str, custom_headers: bool) -> (dict, list):
-        import lxml.html
+        return {}, df
 
-        root = lxml.html.fromstring(html_text)
-
-        betting_data = {}
+    def _parse_webpage(self, html_text: str, custom_headers: bool) -> (dict, pd.DataFrame):
+        dfs = pd.read_html(html_text)
 
         if not custom_headers:
-            betting_table = root.xpath('/html/body/table')[2]
-            betting_table = betting_table.xpath('./tr')[1]
-            betting_table = betting_table.xpath('.//table')[0]
-
-            for row in betting_table.xpath('./tr'):
-                # [:-1] to get rid of colon
-                header = row.xpath('./th')[0].text_content().strip()[:-1]
-
-                table_data = row.xpath('./td')
-
-                if len(table_data) == 2:
-                    betting_data[header] = table_data[0].text_content().strip()
-                else:
-                    outcome = table_data[0].text_content().strip()
-                    avg = table_data[1].text_content().strip().split(':')[-1].strip()
-
-                    betting_data[header] = f'{outcome} avg: {avg}'
-
-        game_table = root.xpath('//table[@id="DT_Table"]')[0]
-
-        headers = [h.text_content() for h in game_table.xpath('.//thead/tr/th')]
-
-        #game_data = [{headers[i]: c.text_content().strip() for i, c in
-        #              enumerate(r.xpath('.//td'))} for r in game_table.xpath('.//tr')][1:]
-
-        game_data = []
-
-        # [1:] because you want to skip the header row
-        for row in game_table.xpath('.//tr')[1:]:
-            box_score = {}
-
-            for i, col in enumerate(row.xpath('.//td')):
-                box_score[headers[i]] = col.text_content().strip()
-
-            game_data.append(box_score)
+            betting_data = dfs[3].to_dict()
+            game_data = dfs[5]
+        else:
+            betting_data = {}
+            game_data = dfs[3]
 
         return betting_data, game_data
 
 
 if __name__ == '__main__':
-    sdb = SDB('ncaafb', use_api=False, debug=True)
+    sdb = SDB('ncaafb', use_api=True, api_key='guest', debug=True)
 
-    betting_data, game_data = sdb.query('team=ALA and o:team=CLEM')
+    betting_data, game_data = sdb.query('date, points, o:points @ team=ALA and o:team=CLEM')
 
     print('betting data:', betting_data)
     print('game data:', game_data)
