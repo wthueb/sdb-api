@@ -80,54 +80,56 @@ class SDB:
 
         if '@' in sdql:
             if sdql.count('@') > 1:
-                raise ValueError(f'sdql query cannot contain two @ symbols: {sdql}')
+                raise ValueError(f'sdql query cannot contain multiple @ symbols: {sdql}')
 
-            cols, kvs = [s.strip() for s in sdql.split('@')]
+            params, conditions = [s.strip() for s in sdql.split('@')]
 
-            if '=' in cols:
-                raise ValueError(f'columns cannot contain key-value pairs, only keys: {cols}')
+            if '=' in params:
+                raise ValueError(f'params cannot contain conditions: {params}')
 
-            cols = [s.strip() for s in cols.split(',')]
+            params = [s.strip() for s in params.split(',')]
 
-            for col in cols:
-                if ':' in col:
+            for param in params:
+                if ':' in param:
                     try:
-                        ref, col = col.split(':')
+                        ref, param = param.split(':')
                     except ValueError:
-                        raise ValueError(f'malformed reference:parameter pair: {ref}:{col}')
+                        raise ValueError(f'malformed reference:parameter pair: {ref}:{param}')
 
-                    if ref not in 'topPnN':
-                        raise ValueError(f'invalid game reference: {ref}:{col}')
+                    if ref not in 'topPnNsS':
+                        raise ValueError(f'invalid reference: {ref}:{param}')
 
-                if col not in SDB.NCAAFB_PARAMS:
-                    raise ValueError((f'{col} is not a valid parameter. '
+                if param not in SDB.NCAAFB_PARAMS:
+                    raise ValueError((f'{param} is not a valid parameter. '
                                       'to see a list of valid parameters view SDB.NCAAFB_PARAMS'))
 
-            kvs = [s.strip() for s in kvs.split(' and ')]
+            conditions = [s.strip() for s in conditions.split(' and ')]
+        elif self.USE_API:
+            raise ValueError('sdql query must include parameters if using the api')
         else:
-            kvs = [s.strip() for s in sdql.split(' and ')]
+            conditions = [s.strip() for s in sdql.split(' and ')]
 
-        for kv in kvs:
+        for condition in conditions:
             try:
-                key, value = kv.split('=')
+                param, value = condition.split('=')
             except ValueError:
-                raise ValueError((f'malformed key-value pair: {kv}. should be in the '
-                                  'format "key=value"'))
+                raise ValueError((f'malformed param-value pair: {condition}. should be in the '
+                                  'format "param=value"'))
 
-            if ':' in key:
+            if ':' in param:
                 try:
-                    ref, key = key.split(':')
+                    ref, param = param.split(':')
                 except ValueError:
-                    raise ValueError(f'malformed reference:parameter pair: {ref}:{key}')
+                    raise ValueError(f'malformed reference:parameter pair: {ref}:{param}')
 
-                if ref not in 'topPnN':
-                    raise ValueError(f'invalid game reference: {ref}:{col}')
+                if ref not in 'topPnNsS':
+                    raise ValueError(f'invalid reference: {ref}:{param}')
 
-            if key not in SDB.NCAAFB_PARAMS:
-                raise ValueError((f'{key} is not a valid parameter. '
+            if param not in SDB.NCAAFB_PARAMS:
+                raise ValueError((f'{param} is not a valid parameter. '
                                   'to see a list of valid parameters view SDB.NCAAFB_PARAMS'))
 
-            if key == 'team':
+            if param == 'team':
                 if value not in SDB.TEAM_ABBRVS.keys():
                     raise ValueError((f'{value} is not a valid team abbreviation. to see a '
                                       'list of valid abbreviations, look at SDB.TEAM_ABBRVS'))
@@ -217,12 +219,3 @@ class SDB:
             game_data = dfs[3]
 
         return betting_data, game_data
-
-
-if __name__ == '__main__':
-    sdb = SDB('ncaafb', use_api=False, api_key='guest', debug=True)
-
-    betting_data, game_data = sdb.query('team=ALA and o:team=CLEM')
-
-    print('betting data:', betting_data)
-    print('game data:', game_data)
